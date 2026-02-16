@@ -24,7 +24,6 @@ def broadcast(message, exclude_conn=None):
 
 def handle_client(conn, addr):
 	try:
-		conn.sendall(b"Enter username: ")
 		username = ""
 		while not username:
 			data = conn.recv(BUFFER_SIZE)
@@ -62,10 +61,15 @@ def handle_client(conn, addr):
 def start_server():
 	server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 	server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-	server.bind((HOST, PORT))
-	server.listen()
+	try:
+		server.bind((HOST, PORT))
+		server.listen()
+	except OSError as exc:
+		print(f"Server failed to start: {exc}", flush=True)
+		server.close()
+		return
 
-	print(f"Server listening on {HOST}:{PORT}")
+	print(f"Server listening on {HOST}:{PORT}", flush=True)
 	try:
 		while True:
 			conn, addr = server.accept()
