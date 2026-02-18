@@ -22,6 +22,61 @@ def broadcast(message, exclude_conn=None):
 				pass
 
 
+def send_to_client(conn, message):
+	try:
+		conn.sendall(message.encode("utf-8"))
+	except OSError:
+		pass
+
+
+def handle_command(conn, username, text):
+	parts = text.split(maxsplit=2)
+	cmd = parts[0].lower()
+
+	if cmd == "/help":
+		help_text = (
+			"\n=== Commands ===\n"
+			"/help - Show this help\n"
+			"/users - List online users\n"
+			"/dm <user> <msg> - Send direct message\n"
+			"/quit - Disconnect\n\n"
+		)
+		send_to_client(conn, help_text)
+		return True
+
+	elif cmd == "/users":
+		with clients_lock:
+			users = list(clients.values())
+		users_text = f"\n=== Online Users ({len(users)}) ===\n" + "\n".join(users) + "\n\n"
+		send_to_client(conn, users_text)
+		return True
+
+	elif cmd == "/dm":
+		if len(parts) < 3:
+			send_to_client(conn, "Usage: /dm <user> <message>\n")
+			return True
+		target_user = parts[1]
+		message = parts[2]
+		with clients_lock:
+			target_conn = None
+			for c, u in clients.items():
+				if u == target_user:
+					target_conn = c
+					break
+		if target_conn:
+			send_to_client(target_conn, f"[DM from {username}] {message}\n")
+			send_to_client(conn, f"[DM to {target_user}] {message}\n")
+		else:
+			send_to_client(conn, f"User '{target_user}' not found.\n")
+		return True
+
+	elif cmd == "/quit":
+		send_to_client(conn, "Disconnecting...\n")
+		return False
+
+	return None
+
+
 def handle_client(conn, addr):
 	try:
 		username = ""
@@ -44,6 +99,14 @@ def handle_client(conn, addr):
 			text = data.decode("utf-8").strip()
 			if not text:
 				continue
+
+			if text.startswith("/"):
+				result = handle_command(conn, username, text)
+				if result is False:
+					break
+				elif result is True:
+					continue
+
 			broadcast(f"{username}: {text}\n", exclude_conn=conn)
 	except ConnectionError:
 		pass

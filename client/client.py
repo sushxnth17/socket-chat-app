@@ -38,11 +38,18 @@ def start_client():
 		receiver = threading.Thread(target=receive_messages, args=(sock,), daemon=True)
 		receiver.start()
 
+		print("Type /help for commands.\n")
+
 		while True:
 			message = sys.stdin.readline()
 			if not message:
 				break
-			sock.sendall(message.encode("utf-8"))
+			message = message.strip()
+			if message == "/quit":
+				print("Disconnecting...")
+				break
+			if message:
+				sock.sendall((message + "\n").encode("utf-8"))
 	except KeyboardInterrupt:
 		pass
 	finally:
