@@ -16,8 +16,11 @@ def receive_messages(sock):
 				print("\n[disconnected] Server closed the connection.")
 				break
 			text = data.decode("utf-8")
-			print(text, end="")
-		except OSError:
+			if text:
+				print(text, end="", flush=True)
+		except OSError as e:
+			if "[Errno 10054]" not in str(e):
+				pass
 			break
 
 
@@ -30,15 +33,18 @@ def start_client():
 		return
 
 	try:
-		username = input("Enter username: ").strip()
-		if not username:
-			return
+		username = ""
+		while not username or len(username) > 20:
+			username = input("Enter username (1-20 chars): ").strip()
+			if not username:
+				print("Username cannot be empty.")
+			elif len(username) > 20:
+				print("Username too long. Max 20 characters.")
+	
 		sock.sendall((username + "\n").encode("utf-8"))
 
 		receiver = threading.Thread(target=receive_messages, args=(sock,), daemon=True)
 		receiver.start()
-
-		print("Type /help for commands.\n")
 
 		while True:
 			message = sys.stdin.readline()

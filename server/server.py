@@ -29,6 +29,14 @@ def send_to_client(conn, message):
 		pass
 
 
+def is_username_taken(username, exclude_conn=None):
+	with clients_lock:
+		for c, u in clients.items():
+			if c is not exclude_conn and u.lower() == username.lower():
+				return True
+	return False
+
+
 def handle_command(conn, username, text):
 	parts = text.split(maxsplit=2)
 	cmd = parts[0].lower()
@@ -53,21 +61,21 @@ def handle_command(conn, username, text):
 
 	elif cmd == "/dm":
 		if len(parts) < 3:
-			send_to_client(conn, "Usage: /dm <user> <message>\n")
+			send_to_client(conn, "Usage: /dm <username> <message>\n")
 			return True
 		target_user = parts[1]
-		message = parts[2]
+		message = " ".join(parts[2:])
 		with clients_lock:
 			target_conn = None
 			for c, u in clients.items():
-				if u == target_user:
+				if u.lower() == target_user.lower():
 					target_conn = c
 					break
 		if target_conn:
 			send_to_client(target_conn, f"[DM from {username}] {message}\n")
 			send_to_client(conn, f"[DM to {target_user}] {message}\n")
 		else:
-			send_to_client(conn, f"User '{target_user}' not found.\n")
+			send_to_client(conn, f"No user named '{target_user}'. Use /users to see online users.\n")
 		return True
 
 	elif cmd == "/quit":
@@ -86,11 +94,21 @@ def handle_client(conn, addr):
 				return
 			username = data.decode("utf-8").strip()
 
+			if not username or len(username) > 20:
+				send_to_client(conn, "[error] Username must be 1-20 characters.\n")
+				username = ""
+				continue
+
+			if is_username_taken(username):
+				send_to_client(conn, "[error] Username already taken. Try another.\n")
+				username = ""
+				continue
+
 		with clients_lock:
 			clients[conn] = username
 
 		broadcast(f"[join] {username} has joined the chat.\n")
-		conn.sendall(b"Connected. Start typing messages.\n")
+		conn.sendall(b"\n=== Connected! Type /help for commands ===\n\n")
 
 		while True:
 			data = conn.recv(BUFFER_SIZE)
