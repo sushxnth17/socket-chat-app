@@ -224,6 +224,3 @@ This project teaches:
 
 Open source—feel free to use, modify, and share!
 
----
-
-Built with ❤️ as a hands-on socket programming exercise.
